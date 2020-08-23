@@ -140,6 +140,12 @@ case "${targ}" in
     targ_selvecs=armcoff_big_vec
     targ_underscore=yes
     ;;
+  arm-*-vxworks*)
+    targ_defvec=armcoff_little_vec
+    targ_selvecs=armcoff_big_vec
+    targ_underscore=yes
+    targ_cflags=-DVXWORKS
+    ;;
   arm-*-rtems*)
     targ_defvec=bfd_elf32_littlearm_vec
     targ_selvecs=bfd_elf32_bigarm_vec
@@ -305,10 +311,6 @@ case "${targ}" in
     targ_defvec=bfd_elf32_i386_vec
     targ_selvecs=i386coff_vec
     ;;
-  i[3456]86-*-rtemself*)
-    targ_defvec=bfd_elf32_i386_vec
-    targ_selvecs="i386coff_vec i386aout_vec"
-    ;;
   i[3456]86-*-chorus*)
     targ_defvec=bfd_elf32_i386_vec
     ;;
@@ -320,9 +322,13 @@ case "${targ}" in
   i[3456]86-*-aix*)
     targ_defvec=i386coff_vec
     ;;
-  i[3456]86*-*-rtems*)
+  i[3456]86*-*-rtemscoff*)
     targ_defvec=i386coff_vec
     targ_selvecs="bfd_elf32_i386_vec i386aout_vec"
+    ;;
+  i[3456]86-*-rtemself* | i[3456]86-*-rtems*)
+    targ_defvec=bfd_elf32_i386_vec
+    targ_selvecs="i386coff_vec i386aout_vec"
     ;;
  i[3456]86-sequent-bsd*)
     targ_defvec=i386dynix_vec
@@ -501,12 +507,16 @@ case "${targ}" in
     targ_selvecs="cisco_core_big_vec ieee_vec"
     targ_underscore=yes
     ;;
+  m68*-*-rtemscoff*)
+    targ_defvec=m68kcoff_vec
+    targ_selvecs="m68kcoff_vec versados_vec ieee_vec aout0_big_vec"
+    ;;
   m68*-*-elf* | m68*-*-sysv4*)
     targ_defvec=bfd_elf32_m68k_vec
     targ_selvecs="m68kcoff_vec ieee_vec"
     ;;
   m68*-*-rtems*)
-    targ_defvec=m68kcoff_vec
+    targ_defvec=bfd_elf32_m68k_vec
     targ_selvecs="m68kcoff_vec versados_vec ieee_vec aout0_big_vec"
     ;;
   m68*-*-coff* | m68*-*-sysv*)
@@ -663,13 +673,21 @@ case "${targ}" in
     targ_defvec=bfd_elf32_bigmips_vec
     targ_selvecs="bfd_elf32_littlemips_vec bfd_elf64_bigmips_vec bfd_elf64_littlemips_vec"
     ;;
-  mips*el*-*-linux-gnu* | mips*el*-*-openbsd*)
+  mips*el*-*-openbsd*)
     targ_defvec=bfd_elf32_littlemips_vec
     targ_selvecs="bfd_elf32_bigmips_vec bfd_elf64_bigmips_vec bfd_elf64_littlemips_vec ecoff_little_vec ecoff_big_vec"
     ;;
-  mips*-*-linux-gnu* | mips*-*-openbsd*)
+  mips*el*-*-linux-gnu*)
+    targ_defvec=bfd_elf32_tradlittlemips_vec
+    targ_selvecs="bfd_elf32_tradbigmips_vec bfd_elf64_tradlittlemips_vec bfd_elf64_tradbigmips_vec ecoff_little_vec ecoff_big_vec"
+    ;;
+  mips*-*-openbsd*)
     targ_defvec=bfd_elf32_bigmips_vec
     targ_selvecs="bfd_elf32_littlemips_vec bfd_elf64_bigmips_vec bfd_elf64_littlemips_vec ecoff_big_vec ecoff_little_vec"
+    ;;
+  mips*-*-linux-gnu*)
+    targ_defvec=bfd_elf32_tradbigmips_vec
+    targ_selvecs="bfd_elf32_tradlittlemips_vec bfd_elf64_tradbigmips_vec bfd_elf64_tradlittlemips_vec ecoff_big_vec ecoff_little_vec"
     ;;
 
   mn10200-*-*)

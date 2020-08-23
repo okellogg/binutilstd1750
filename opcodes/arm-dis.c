@@ -1,5 +1,6 @@
 /* Instruction printing code for the ARM
-   Copyright (C) 1994, 95, 96, 97, 98, 99, 2000 Free Software Foundation, Inc. 
+   Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rwe@pegasus.esprit.ec.org)
    Modification by James G. Smith (jsmith@cygnus.co.uk)
 
@@ -200,7 +201,7 @@ print_insn_arm (pc, info, given)
 				offset = - offset;
 			  
 			      /* pre-indexed */
-			      func (stream, ", #%x]", offset);
+			      func (stream, ", #%d]", offset);
 
 			      offset += pc + 8;
 
@@ -214,7 +215,7 @@ print_insn_arm (pc, info, given)
 			  else
 			    {
 			      /* Post indexed.  */
-			      func (stream, "], #%x", offset);
+			      func (stream, "], #%d", offset);
 
 			      offset = pc + 8;  /* ie ignore the offset.  */
 			    }
@@ -279,7 +280,7 @@ print_insn_arm (pc, info, given)
 			  if ((given & 0x00800000) == 0)
 			    offset = -offset;
 			  
-			  func (stream, "[pc, #%x]\t; ", offset);
+			  func (stream, "[pc, #%d]\t; ", offset);
 			  
 			  (*info->print_address_func)
 			    (offset + pc + 8, info);

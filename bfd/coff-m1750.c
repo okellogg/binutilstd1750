@@ -278,6 +278,10 @@ m1750_reloc_type_lookup (abfd, code)
 
 #include "coffcode.h"
 
+extern const bfd_target m1750coff_vec;
+
+CREATE_BIG_COFF_TARGET_VEC (m1750coff_big_vec, "coff-1750a", 0, 0, '_', & m1750coff_vec)
+
 const bfd_target 
 #ifdef TARGET_SYM
   TARGET_SYM =
@@ -329,6 +333,8 @@ const bfd_target
      BFD_JUMP_TABLE_WRITE (coff),
      BFD_JUMP_TABLE_LINK (coff),
      BFD_JUMP_TABLE_DYNAMIC (_bfd_nodynamic),
+
+  &m1750coff_big_vec,
 
   COFF_SWAP_TABLE
  };

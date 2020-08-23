@@ -366,6 +366,9 @@ static boolean elf32_hppa_adjust_dynamic_symbol
 static boolean hppa_handle_PIC_calls
   PARAMS ((struct elf_link_hash_entry *, PTR));
 
+static boolean allocate_plt_and_got
+  PARAMS ((struct elf_link_hash_entry *, PTR));
+
 #if ((! LONG_BRANCH_PIC_IN_SHLIB && LONG_BRANCH_VIA_PLT) \
      || RELATIVE_DYNAMIC_RELOCS)
 static boolean hppa_discard_copies
@@ -766,7 +769,8 @@ hppa_type_of_stub (input_sec, rel, hash, destination)
 #if LONG_BRANCH_VIA_PLT
       if (hash != NULL
 	  && hash->elf.dynindx != -1
-	  && hash->elf.plt.offset != (bfd_vma) -1)
+	  && hash->elf.plt.offset != (bfd_vma) -1
+	  && hash->elf.type != STT_PARISC_MILLI)
 	{
 	  /* If we are doing a shared link and find we need a long
 	     branch stub, then go via the .plt if possible.  */
@@ -831,6 +835,7 @@ hppa_build_one_stub (gen_entry, in_arg)
   bfd_byte *loc;
   bfd_vma sym_value;
   bfd_vma insn;
+  bfd_vma off;
   int val;
   int size;
 
@@ -938,7 +943,12 @@ hppa_build_one_stub (gen_entry, in_arg)
 
     case hppa_stub_import:
     case hppa_stub_import_shared:
-      sym_value = (stub_entry->h->elf.plt.offset
+      off = stub_entry->h->elf.plt.offset;
+      if (off >= (bfd_vma) -2)
+	abort ();
+
+      off &= ~ (bfd_vma) 1;
+      sym_value = (off
 		   + hplink->splt->output_offset
 		   + hplink->splt->output_section->vma
 		   - elf_gp (hplink->splt->output_section->owner));
@@ -997,8 +1007,9 @@ hppa_build_one_stub (gen_entry, in_arg)
 	  dynobj = hplink->root.dynobj;
 	  eh = (struct elf32_hppa_link_hash_entry *) stub_entry->h;
 
-	  BFD_ASSERT (eh->elf.root.type == bfd_link_hash_defined
-		      || eh->elf.root.type == bfd_link_hash_defweak);
+	  if (eh->elf.root.type != bfd_link_hash_defined
+	      && eh->elf.root.type != bfd_link_hash_defweak)
+	    abort ();
 
 	  value = (eh->elf.root.u.def.value
 		   + eh->elf.root.u.def.section->output_offset
@@ -1011,10 +1022,10 @@ hppa_build_one_stub (gen_entry, in_arg)
 	     <__gp>.  */
 
 	  bfd_put_32 (hplink->splt->owner, value,
-		      hplink->splt->contents + eh->elf.plt.offset);
+		      hplink->splt->contents + off);
 	  value = elf_gp (hplink->splt->output_section->owner);
 	  bfd_put_32 (hplink->splt->owner, value,
-		      hplink->splt->contents + eh->elf.plt.offset + 4);
+		      hplink->splt->contents + off + 4);
 	}
       break;
 
@@ -1136,8 +1147,22 @@ static boolean
 elf32_hppa_object_p (abfd)
      bfd *abfd;
 {
-  unsigned int flags = elf_elfheader (abfd)->e_flags;
+  Elf_Internal_Ehdr * i_ehdrp;
+  unsigned int flags;
 
+  i_ehdrp = elf_elfheader (abfd);
+  if (strcmp (bfd_get_target (abfd), "elf32-hppa-linux") == 0)
+    {
+      if (i_ehdrp->e_ident[EI_OSABI] != ELFOSABI_LINUX)
+	return false;
+    }
+  else
+    {
+      if (i_ehdrp->e_ident[EI_OSABI] != ELFOSABI_HPUX)
+	return false;
+    }
+
+  flags = i_ehdrp->e_flags;
   switch (flags & (EF_PARISC_ARCH | EF_PARISC_WIDE))
     {
     case EFA_PARISC_1_0:
@@ -1288,13 +1313,25 @@ elf32_hppa_check_relocs (abfd, info, sec, relocs)
 	case R_PARISC_PLABEL21L:
 	case R_PARISC_PLABEL32:
 	  /* If the addend is non-zero, we break badly.  */
-	  BFD_ASSERT (rel->r_addend == 0);
+	  if (rel->r_addend != 0)
+	    abort ();
 
 	  /* If we are creating a shared library, then we need to
 	     create a PLT entry for all PLABELs, because PLABELs with
 	     local symbols may be passed via a pointer to another
 	     object.  Additionally, output a dynamic relocation
-	     pointing to the PLT entry.  */
+	     pointing to the PLT entry.
+	     For executables, the original 32-bit ABI allowed two
+	     different styles of PLABELs (function pointers):  For
+	     global functions, the PLABEL word points into the .plt
+	     two bytes past a (function address, gp) pair, and for
+	     local functions the PLABEL points directly at the
+	     function.  The magic +2 for the first type allows us to
+	     differentiate between the two.  As you can imagine, this
+	     is a real pain when it comes to generating code to call
+	     functions indirectly or to compare function pointers.
+	     We avoid the mess by always pointing a PLABEL into the
+	     .plt, even for local functions.  */
 	  need_entry = PLT_PLABEL | NEED_PLT | NEED_DYNREL;
 	  break;
 
@@ -1325,6 +1362,8 @@ elf32_hppa_check_relocs (abfd, info, sec, relocs)
 		 where a symbol is forced local by versioning, or due
 		 to symbolic linking, and we lose the .plt entry.  */
 	      need_entry = NEED_PLT | NEED_STUBREL;
+	      if (h->elf.type == STT_PARISC_MILLI)
+		need_entry = NEED_STUBREL;
 	    }
 	  break;
 
@@ -1423,9 +1462,6 @@ elf32_hppa_check_relocs (abfd, info, sec, relocs)
 								  &h->elf))
 			return false;
 		    }
-
-		  hplink->sgot->_raw_size += GOT_ENTRY_SIZE;
-		  hplink->srelgot->_raw_size += sizeof (Elf32_External_Rela);
 		}
 	      else
 		h->elf.got.refcount += 1;
@@ -1450,20 +1486,7 @@ elf32_hppa_check_relocs (abfd, info, sec, relocs)
 		  memset (local_got_refcounts, -1, size);
 		}
 	      if (local_got_refcounts[r_symndx] == -1)
-		{
-		  local_got_refcounts[r_symndx] = 1;
-
-		  hplink->sgot->_raw_size += GOT_ENTRY_SIZE;
-		  if (info->shared)
-		    {
-		      /* If we are generating a shared object, we need to
-			 output a reloc so that the dynamic linker can
-			 adjust this GOT entry (because the address
-			 the shared library is loaded at is not fixed).  */
-		      hplink->srelgot->_raw_size +=
-			sizeof (Elf32_External_Rela);
-		    }
-		}
+		local_got_refcounts[r_symndx] = 1;
 	      else
 		local_got_refcounts[r_symndx] += 1;
 	    }
@@ -1499,7 +1522,7 @@ elf32_hppa_check_relocs (abfd, info, sec, relocs)
 		}
 	      else if (need_entry & PLT_PLABEL)
 		{
-		  int indx;
+		  bfd_signed_vma *local_plt_refcounts;
 
 		  if (local_got_refcounts == NULL)
 		    {
@@ -1515,11 +1538,12 @@ elf32_hppa_check_relocs (abfd, info, sec, relocs)
 		      elf_local_got_refcounts (abfd) = local_got_refcounts;
 		      memset (local_got_refcounts, -1, size);
 		    }
-		  indx = r_symndx + symtab_hdr->sh_info;
-		  if (local_got_refcounts[indx] == -1)
-		    local_got_refcounts[indx] = 1;
+		  local_plt_refcounts = (local_got_refcounts
+					 + symtab_hdr->sh_info);
+		  if (local_plt_refcounts[r_symndx] == -1)
+		    local_plt_refcounts[r_symndx] = 1;
 		  else
-		    local_got_refcounts[indx] += 1;
+		    local_plt_refcounts[r_symndx] += 1;
 		}
 	    }
 	}
@@ -1765,8 +1789,6 @@ elf32_hppa_gc_sweep_hook (abfd, info, sec, relocs)
   struct elf_link_hash_entry *h;
   struct elf32_hppa_link_hash_table *hplink;
   bfd *dynobj;
-  asection *sgot;
-  asection *srelgot;
 
   symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
   sym_hashes = elf_sym_hashes (abfd);
@@ -1778,9 +1800,6 @@ elf32_hppa_gc_sweep_hook (abfd, info, sec, relocs)
   dynobj = hplink->root.dynobj;
   if (dynobj == NULL)
     return true;
-
-  sgot = hplink->sgot;
-  srelgot = hplink->srelgot;
 
   relend = relocs + sec->reloc_count;
   for (rel = relocs; rel < relend; rel++)
@@ -1794,27 +1813,12 @@ elf32_hppa_gc_sweep_hook (abfd, info, sec, relocs)
 	  {
 	    h = sym_hashes[r_symndx - symtab_hdr->sh_info];
 	    if (h->got.refcount > 0)
-	      {
-		h->got.refcount -= 1;
-		if (h->got.refcount == 0)
-		  {
-		    sgot->_raw_size -= GOT_ENTRY_SIZE;
-		    srelgot->_raw_size -= sizeof (Elf32_External_Rela);
-		  }
-	      }
+	      h->got.refcount -= 1;
 	  }
 	else if (local_got_refcounts != NULL)
 	  {
 	    if (local_got_refcounts[r_symndx] > 0)
-	      {
-		local_got_refcounts[r_symndx] -= 1;
-		if (local_got_refcounts[r_symndx] == 0)
-		  {
-		    sgot->_raw_size -= GOT_ENTRY_SIZE;
-		    if (info->shared)
-		      srelgot->_raw_size -= sizeof (Elf32_External_Rela);
-		  }
-	      }
+	      local_got_refcounts[r_symndx] -= 1;
 	  }
 	break;
 
@@ -1863,13 +1867,25 @@ elf32_hppa_hide_symbol (info, h)
      struct bfd_link_info *info ATTRIBUTE_UNUSED;
      struct elf_link_hash_entry *h;
 {
-  h->dynindx = -1;
+  if ((h->elf_link_hash_flags & ELF_LINK_FORCED_LOCAL) != 0)
+    h->dynindx = -1;
   if (! ((struct elf32_hppa_link_hash_entry *) h)->plabel)
     {
       h->elf_link_hash_flags &= ~ELF_LINK_HASH_NEEDS_PLT;
       h->plt.offset = (bfd_vma) -1;
     }
 }
+
+/* This is the condition under which elf32_hppa_finish_dynamic_symbol
+   will be called from elflink.h.  If elflink.h doesn't call our
+   finish_dynamic_symbol routine, we'll need to do something about
+   initializing any .plt and .got entries in elf32_hppa_relocate_section.  */
+#define WILL_CALL_FINISH_DYNAMIC_SYMBOL(DYN, INFO, H) \
+  ((DYN)								\
+   && ((INFO)->shared							\
+       || ((H)->elf_link_hash_flags & ELF_LINK_FORCED_LOCAL) == 0)	\
+   && ((H)->dynindx != -1						\
+       || ((H)->elf_link_hash_flags & ELF_LINK_FORCED_LOCAL) != 0))
 
 /* Adjust a symbol defined by a dynamic object and referenced by a
    regular object.  The current definition is in some section of the
@@ -1929,19 +1945,6 @@ elf32_hppa_adjust_dynamic_symbol (info, h)
 	    }
 	}
 
-      /* Make an entry in the .plt section.  */
-      s = hplink->splt;
-      h->plt.offset = s->_raw_size;
-      if (PLABEL_PLT_ENTRY_SIZE != PLT_ENTRY_SIZE
-	  && ((struct elf32_hppa_link_hash_entry *) h)->plabel
-	  && (h->elf_link_hash_flags & ELF_LINK_FORCED_LOCAL) == 0)
-	{
-	  /* Add some extra space for the dynamic linker to use.  */
-	  s->_raw_size += PLABEL_PLT_ENTRY_SIZE;
-	}
-      else
-	s->_raw_size += PLT_ENTRY_SIZE;
-
       if (! ((struct elf32_hppa_link_hash_entry *) h)->pic_call)
 	{
 	  /* Make sure this symbol is output as a dynamic symbol.  */
@@ -1951,13 +1954,8 @@ elf32_hppa_adjust_dynamic_symbol (info, h)
 	      if (! bfd_elf32_link_record_dynamic_symbol (info, h))
 		return false;
 	    }
-
-	  /* We also need to make an entry in the .rela.plt section.  */
-	  s = hplink->srelplt;
-	  s->_raw_size += sizeof (Elf32_External_Rela);
-
-	  hplink->need_plt_stub = 1;
 	}
+
       return true;
     }
 
@@ -1966,8 +1964,9 @@ elf32_hppa_adjust_dynamic_symbol (info, h)
      real definition first, and we can just use the same value.  */
   if (h->weakdef != NULL)
     {
-      BFD_ASSERT (h->weakdef->root.type == bfd_link_hash_defined
-		  || h->weakdef->root.type == bfd_link_hash_defweak);
+      if (h->weakdef->root.type != bfd_link_hash_defined
+	  && h->weakdef->root.type != bfd_link_hash_defweak)
+	abort ();
       h->root.u.def.section = h->weakdef->root.u.def.section;
       h->root.u.def.value = h->weakdef->root.u.def.value;
       return true;
@@ -2048,13 +2047,8 @@ elf32_hppa_adjust_dynamic_symbol (info, h)
 static boolean
 hppa_handle_PIC_calls (h, inf)
      struct elf_link_hash_entry *h;
-     PTR inf;
+     PTR inf ATTRIBUTE_UNUSED;
 {
-  struct bfd_link_info *info;
-  bfd *dynobj;
-  struct elf32_hppa_link_hash_table *hplink;
-  asection *s;
-
   if (! (h->plt.refcount > 0
 	 && (h->root.type == bfd_link_hash_defined
 	     || h->root.type == bfd_link_hash_defweak)
@@ -2069,14 +2063,71 @@ hppa_handle_PIC_calls (h, inf)
   ((struct elf32_hppa_link_hash_entry *) h)->maybe_pic_call = 1;
   ((struct elf32_hppa_link_hash_entry *) h)->pic_call = 1;
 
+  return true;
+}
+
+/* Allocate space in .plt, .got and associated reloc sections for
+   global syms.  */
+
+static boolean
+allocate_plt_and_got (h, inf)
+     struct elf_link_hash_entry *h;
+     PTR inf;
+{
+  struct bfd_link_info *info;
+  struct elf32_hppa_link_hash_table *hplink;
+  asection *s;
+
+  if (h->root.type == bfd_link_hash_indirect
+      || h->root.type == bfd_link_hash_warning)
+    return true;
+
   info = (struct bfd_link_info *) inf;
   hplink = hppa_link_hash_table (info);
-  dynobj = hplink->root.dynobj;
+  if ((hplink->root.dynamic_sections_created
+       && h->plt.refcount > 0)
+      || ((struct elf32_hppa_link_hash_entry *) h)->pic_call)
+    {
+      /* Make an entry in the .plt section.  */
+      s = hplink->splt;
+      h->plt.offset = s->_raw_size;
+      if (PLABEL_PLT_ENTRY_SIZE != PLT_ENTRY_SIZE
+	  && ((struct elf32_hppa_link_hash_entry *) h)->plabel
+	  && (h->elf_link_hash_flags & ELF_LINK_FORCED_LOCAL) == 0)
+	{
+	  /* Add some extra space for the dynamic linker to use.  */
+	  s->_raw_size += PLABEL_PLT_ENTRY_SIZE;
+	}
+      else
+	s->_raw_size += PLT_ENTRY_SIZE;
 
-  /* Make an entry in the .plt section.  */
-  s = hplink->splt;
-  h->plt.offset = s->_raw_size;
-  s->_raw_size += PLT_ENTRY_SIZE;
+      if (! ((struct elf32_hppa_link_hash_entry *) h)->pic_call
+	  && WILL_CALL_FINISH_DYNAMIC_SYMBOL (1, info, h))
+	{
+	  /* We also need to make an entry in the .rela.plt section.  */
+	  hplink->srelplt->_raw_size += sizeof (Elf32_External_Rela);
+	  hplink->need_plt_stub = 1;
+	}
+    }
+  else
+    {
+      h->plt.offset = (bfd_vma) -1;
+      h->elf_link_hash_flags &= ~ELF_LINK_HASH_NEEDS_PLT;
+    }
+
+  if (h->got.refcount > 0)
+    {
+      boolean dyn;
+
+      s = hplink->sgot;
+      h->got.offset = s->_raw_size;
+      s->_raw_size += GOT_ENTRY_SIZE;
+      dyn = hplink->root.dynamic_sections_created;
+      if (WILL_CALL_FINISH_DYNAMIC_SYMBOL (dyn, info, h))
+	hplink->srelgot->_raw_size += sizeof (Elf32_External_Rela);
+    }
+  else
+    h->got.offset = (bfd_vma) -1;
 
   return true;
 }
@@ -2143,10 +2194,16 @@ clobber_millicode_symbols (h, info)
      struct elf_link_hash_entry *h;
      struct bfd_link_info *info;
 {
-  /* Note!  We only want to remove these from the dynamic symbol
-     table.  Therefore we do not set ELF_LINK_FORCED_LOCAL.  */
+  /* We only want to remove these from the dynamic symbol table.
+     Therefore we do not leave ELF_LINK_FORCED_LOCAL set.  */
   if (h->type == STT_PARISC_MILLI)
-    elf32_hppa_hide_symbol (info, h);
+    {
+      unsigned short oldflags = h->elf_link_hash_flags;
+      h->elf_link_hash_flags |= ELF_LINK_FORCED_LOCAL;
+      elf32_hppa_hide_symbol (info, h);
+      h->elf_link_hash_flags &= ~ELF_LINK_FORCED_LOCAL;
+      h->elf_link_hash_flags |= oldflags & ELF_LINK_FORCED_LOCAL;
+    }
   return true;
 }
 
@@ -2159,23 +2216,24 @@ elf32_hppa_size_dynamic_sections (output_bfd, info)
 {
   struct elf32_hppa_link_hash_table *hplink;
   bfd *dynobj;
+  bfd *i;
   asection *s;
   boolean relocs;
   boolean reltext;
 
   hplink = hppa_link_hash_table (info);
   dynobj = hplink->root.dynobj;
-  BFD_ASSERT (dynobj != NULL);
+  if (dynobj == NULL)
+    abort ();
 
   if (hplink->root.dynamic_sections_created)
     {
-      bfd *i;
-
       /* Set the contents of the .interp section to the interpreter.  */
       if (! info->shared)
 	{
 	  s = bfd_get_section_by_name (dynobj, ".interp");
-	  BFD_ASSERT (s != NULL);
+	  if (s == NULL)
+	    abort ();
 	  s->_raw_size = sizeof ELF_DYNAMIC_INTERPRETER;
 	  s->contents = (unsigned char *) ELF_DYNAMIC_INTERPRETER;
 	}
@@ -2184,38 +2242,6 @@ elf32_hppa_size_dynamic_sections (output_bfd, info)
       elf_link_hash_traverse (&hplink->root,
 			      clobber_millicode_symbols,
 			      info);
-
-      /* Set up .plt offsets for local plabels.  */
-      for (i = info->input_bfds; i; i = i->link_next)
-	{
-	  bfd_signed_vma *local_plt;
-	  bfd_signed_vma *end_local_plt;
-	  bfd_size_type locsymcount;
-	  Elf_Internal_Shdr *symtab_hdr;
-
-	  local_plt = elf_local_got_refcounts (i);
-	  if (!local_plt)
-	    continue;
-
-	  symtab_hdr = &elf_tdata (i)->symtab_hdr;
-	  locsymcount = symtab_hdr->sh_info;
-	  local_plt += locsymcount;
-	  end_local_plt = local_plt + locsymcount;
-
-	  for (; local_plt < end_local_plt; ++local_plt)
-	    {
-	      if (*local_plt > 0)
-		{
-		  s = hplink->splt;
-		  *local_plt = s->_raw_size;
-		  s->_raw_size += PLT_ENTRY_SIZE;
-		  if (info->shared)
-		    hplink->srelplt->_raw_size += sizeof (Elf32_External_Rela);
-		}
-	      else
-		*local_plt = (bfd_vma) -1;
-	    }
-	}
     }
   else
     {
@@ -2226,14 +2252,75 @@ elf32_hppa_size_dynamic_sections (output_bfd, info)
 	elf_link_hash_traverse (&hplink->root,
 				hppa_handle_PIC_calls,
 				info);
-
-      /* We may have created entries in the .rela.got section.
-	 However, if we are not creating the dynamic sections, we will
-	 not actually use these entries.  Reset the size of .rela.got,
-	 which will cause it to get stripped from the output file
-	 below.  */
-      hplink->srelgot->_raw_size = 0;
     }
+
+  /* Set up .got and .plt offsets for local syms.  */
+  for (i = info->input_bfds; i; i = i->link_next)
+    {
+      bfd_signed_vma *local_got;
+      bfd_signed_vma *end_local_got;
+      bfd_signed_vma *local_plt;
+      bfd_signed_vma *end_local_plt;
+      bfd_size_type locsymcount;
+      Elf_Internal_Shdr *symtab_hdr;
+      asection *srel;
+
+      if (bfd_get_flavour (i) != bfd_target_elf_flavour)
+	continue;
+
+      local_got = elf_local_got_refcounts (i);
+      if (!local_got)
+	continue;
+
+      symtab_hdr = &elf_tdata (i)->symtab_hdr;
+      locsymcount = symtab_hdr->sh_info;
+      end_local_got = local_got + locsymcount;
+      s = hplink->sgot;
+      srel = hplink->srelgot;
+      for (; local_got < end_local_got; ++local_got)
+	{
+	  if (*local_got > 0)
+	    {
+	      *local_got = s->_raw_size;
+	      s->_raw_size += GOT_ENTRY_SIZE;
+	      if (info->shared)
+		srel->_raw_size += sizeof (Elf32_External_Rela);
+	    }
+	  else
+	    *local_got = (bfd_vma) -1;
+	}
+
+      local_plt = end_local_got;
+      end_local_plt = local_plt + locsymcount;
+      if (! hplink->root.dynamic_sections_created)
+	{
+	  /* Won't be used, but be safe.  */
+	  for (; local_plt < end_local_plt; ++local_plt)
+	    *local_plt = (bfd_vma) -1;
+	}
+      else
+	{
+	  s = hplink->splt;
+	  srel = hplink->srelplt;
+	  for (; local_plt < end_local_plt; ++local_plt)
+	    {
+	      if (*local_plt > 0)
+		{
+		  *local_plt = s->_raw_size;
+		  s->_raw_size += PLT_ENTRY_SIZE;
+		  if (info->shared)
+		    srel->_raw_size += sizeof (Elf32_External_Rela);
+		}
+	      else
+		*local_plt = (bfd_vma) -1;
+	    }
+	}
+    }
+
+  /* Allocate global sym .plt and .got entries.  */
+  elf_link_hash_traverse (&hplink->root,
+			  allocate_plt_and_got,
+			  info);
 
 #if ((! LONG_BRANCH_PIC_IN_SHLIB && LONG_BRANCH_VIA_PLT) \
      || RELATIVE_DYNAMIC_RELOCS)
@@ -2254,16 +2341,29 @@ elf32_hppa_size_dynamic_sections (output_bfd, info)
   reltext = false;
   for (s = dynobj->sections; s != NULL; s = s->next)
     {
-      const char *name;
-
       if ((s->flags & SEC_LINKER_CREATED) == 0)
 	continue;
 
-      /* It's OK to base decisions on the section name, because none
-	 of the dynobj section names depend upon the input files.  */
-      name = bfd_get_section_name (dynobj, s);
+      if (s == hplink->splt)
+	{
+	  if (hplink->need_plt_stub)
+	    {
+	      /* Make space for the plt stub at the end of the .plt
+		 section.  We want this stub right at the end, up
+		 against the .got section.  */
+	      int gotalign = bfd_section_alignment (dynobj, hplink->sgot);
+	      int pltalign = bfd_section_alignment (dynobj, s);
+	      bfd_size_type mask;
 
-      if (strncmp (name, ".rela", 5) == 0)
+	      if (gotalign > pltalign)
+		bfd_set_section_alignment (dynobj, s, gotalign);
+	      mask = ((bfd_size_type) 1 << gotalign) - 1;
+	      s->_raw_size = (s->_raw_size + sizeof (plt_stub) + mask) & ~mask;
+	    }
+	}
+      else if (s == hplink->sgot)
+	;
+      else if (strncmp (bfd_get_section_name (dynobj, s), ".rela", 5) == 0)
 	{
 	  if (s->_raw_size != 0)
 	    {
@@ -2272,7 +2372,7 @@ elf32_hppa_size_dynamic_sections (output_bfd, info)
 
 	      /* Remember whether there are any reloc sections other
 		 than .rela.plt.  */
-	      if (strcmp (name+5, ".plt") != 0)
+	      if (s != hplink->srelplt)
 		relocs = true;
 
 	      /* If this relocation section applies to a read only
@@ -2290,25 +2390,6 @@ elf32_hppa_size_dynamic_sections (output_bfd, info)
 	      s->reloc_count = 0;
 	    }
 	}
-      else if (strcmp (name, ".plt") == 0)
-	{
-	  if (hplink->need_plt_stub)
-	    {
-	      /* Make space for the plt stub at the end of the .plt
-		 section.  We want this stub right at the end, up
-		 against the .got section.  */
-	      int gotalign = bfd_section_alignment (dynobj, hplink->sgot);
-	      int pltalign = bfd_section_alignment (dynobj, s);
-	      bfd_size_type mask;
-
-	      if (gotalign > pltalign)
-		bfd_set_section_alignment (dynobj, s, gotalign);
-	      mask = ((bfd_size_type) 1 << gotalign) - 1;
-	      s->_raw_size = (s->_raw_size + sizeof (plt_stub) + mask) & ~mask;
-	    }
-	}
-      else if (strcmp (name, ".got") == 0)
-	;
       else
 	{
 	  /* It's not one of our sections, so don't allocate space.  */
@@ -3143,9 +3224,8 @@ elf32_hppa_final_link (abfd, info)
 {
   asection *s;
 
-  /* Invoke the regular ELF garbage collecting linker to do all the
-     work.  */
-  if (!_bfd_elf32_gc_common_final_link (abfd, info))
+  /* Invoke the regular ELF linker to do all the work.  */
+  if (!bfd_elf32_bfd_final_link (abfd, info))
     return false;
 
   /* If we're producing a final executable, sort the contents of the
@@ -3271,10 +3351,13 @@ final_link_relocate (input_section, contents, rel, value, hplink, sym_sec, h)
 	  else if (sym_sec == NULL && h != NULL
 		   && h->elf.root.type == bfd_link_hash_undefweak)
 	    {
-	      /* It's OK if undefined weak.  Make undefined weak
-		 branches go nowhere.  */
+	      /* It's OK if undefined weak.  Calls to undefined weak
+		 symbols behave as if the "called" function
+		 immediately returns.  We can thus call to a weak
+		 function without first checking whether the function
+		 is defined.  */
 	      value = location;
-	      addend = 0;
+	      addend = 8;
 	    }
 	  else
 	    return bfd_reloc_notsupported;
@@ -3507,6 +3590,7 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
       bfd_reloc_status_type r;
       const char *sym_name;
       boolean plabel;
+      bfd_vma off;
 
       r_type = ELF32_R_TYPE (rel->r_info);
       if (r_type >= (unsigned int) R_PARISC_UNIMPLEMENTED)
@@ -3579,7 +3663,8 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 	  else if (h->elf.root.type == bfd_link_hash_undefweak)
 	    ;
 	  else if (info->shared && !info->no_undefined
-		   && ELF_ST_VISIBILITY (h->elf.other) == STV_DEFAULT)
+		   && ELF_ST_VISIBILITY (h->elf.other) == STV_DEFAULT
+		   && h->elf.type != STT_PARISC_MILLI)
 	    {
 	      if (info->symbolic)
 		if (!((*info->callbacks->undefined_symbol)
@@ -3609,16 +3694,11 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 	     offset table.  */
 	  if (h != NULL)
 	    {
-	      bfd_vma off;
+	      boolean dyn;
 
 	      off = h->elf.got.offset;
-	      BFD_ASSERT (off != (bfd_vma) -1);
-
-	      if (! hplink->root.dynamic_sections_created
-		  || (info->shared
-		      && (info->symbolic || h->elf.dynindx == -1)
-		      && (h->elf.elf_link_hash_flags
-			  & ELF_LINK_HASH_DEF_REGULAR) != 0))
+	      dyn = hplink->root.dynamic_sections_created;
+	      if (! WILL_CALL_FINISH_DYNAMIC_SYMBOL (dyn, info, &h->elf))
 		{
 		  /* This is actually a static link, or it is a
 		     -Bsymbolic link and the symbol is defined
@@ -3641,16 +3721,12 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 		      h->elf.got.offset |= 1;
 		    }
 		}
-
-	      relocation = off;
 	    }
 	  else
 	    {
 	      /* Local symbol case.  */
-	      bfd_vma off;
-
-	      BFD_ASSERT (local_got_offsets != NULL
-			  && local_got_offsets[r_symndx] != (bfd_vma) -1);
+	      if (local_got_offsets == NULL)
+		abort ();
 
 	      off = local_got_offsets[r_symndx];
 
@@ -3666,10 +3742,10 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 
 		  if (info->shared)
 		    {
-		      /* Output a dynamic *ABS* relocation for this
-			 GOT entry.  In this case it is relative to
-			 the base of the object because the symbol
-			 index is zero.  */
+		      /* Output a dynamic relocation for this GOT
+			 entry.  In this case it is relative to the
+			 base of the object because the symbol index
+			 is zero.  */
 		      Elf_Internal_Rela outrel;
 		      asection *srelgot = hplink->srelgot;
 
@@ -3687,13 +3763,15 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 
 		  local_got_offsets[r_symndx] |= 1;
 		}
-
-	      relocation = off;
 	    }
 
+	  if (off >= (bfd_vma) -2)
+	    abort ();
+
 	  /* Add the base of the GOT to the relocation value.  */
-	  relocation += (hplink->sgot->output_offset
-			 + hplink->sgot->output_section->vma);
+	  relocation = (off
+			+ hplink->sgot->output_offset
+			+ hplink->sgot->output_section->vma);
 	  break;
 
 	case R_PARISC_SEGREL32:
@@ -3710,20 +3788,39 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 	case R_PARISC_PLABEL32:
 	  if (hplink->root.dynamic_sections_created)
 	    {
-	      bfd_vma off;
-
 	      /* If we have a global symbol with a PLT slot, then
 		 redirect this relocation to it.  */
 	      if (h != NULL)
 		{
 		  off = h->elf.plt.offset;
+		  if (! WILL_CALL_FINISH_DYNAMIC_SYMBOL (1, info, &h->elf))
+		    {
+		      /* In a non-shared link, adjust_dynamic_symbols
+			 isn't called for symbols forced local.  We
+			 need to write out the plt entry here.  */ 
+		      if ((off & 1) != 0)
+			off &= ~1;
+		      else
+			{
+			  bfd_put_32 (output_bfd,
+				      relocation,
+				      hplink->splt->contents + off);
+			  bfd_put_32 (output_bfd,
+				      elf_gp (hplink->splt->output_section->owner),
+				      hplink->splt->contents + off + 4);
+			  h->elf.plt.offset |= 1;
+			}
+		    }
 		}
 	      else
 		{
-		  int indx;
+		  bfd_vma *local_plt_offsets;
 
-		  indx = r_symndx + symtab_hdr->sh_info;
-		  off = local_got_offsets[indx];
+		  if (local_got_offsets == NULL)
+		    abort ();
+
+		  local_plt_offsets = local_got_offsets + symtab_hdr->sh_info;
+		  off = local_plt_offsets[r_symndx];
 
 		  /* As for the local .got entry case, we use the last
 		     bit to record whether we've already initialised
@@ -3758,11 +3855,12 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 			  ++srelplt->reloc_count;
 			}
 
-		      local_got_offsets[indx] |= 1;
+		      local_plt_offsets[r_symndx] |= 1;
 		    }
 		}
 
-	      BFD_ASSERT (off < (bfd_vma) -2);
+	      if (off >= (bfd_vma) -2)
+		abort ();
 
 	      /* PLABELs contain function pointers.  Relocation is to
 		 the entry for the function in the .plt.  The magic +2
@@ -3829,7 +3927,8 @@ elf32_hppa_relocate_section (output_bfd, info, input_bfd, input_section,
 		  if (name == NULL)
 		    return false;
 		  sreloc = bfd_get_section_by_name (dynobj, name);
-		  BFD_ASSERT (sreloc != NULL);
+		  if (sreloc == NULL)
+		    abort ();
 		}
 
 	      outrel.r_offset = rel->r_offset;
@@ -3995,6 +4094,9 @@ elf32_hppa_finish_dynamic_symbol (output_bfd, info, h, sym)
     {
       bfd_vma value;
 
+      if (h->plt.offset & 1)
+	abort ();
+
       /* This symbol has an entry in the procedure linkage table.  Set
 	 it up.
 
@@ -4025,8 +4127,8 @@ elf32_hppa_finish_dynamic_symbol (output_bfd, info, h, sym)
 	    {
 	      /* To support lazy linking, the function pointer is
 		 initialised to point to a special stub stored at the
-		 end of the .plt.  This is only done for plt entries
-		 with a non-*ABS* dynamic relocation.  */
+		 end of the .plt.  This is not done for plt entries
+		 with a base-relative dynamic relocation.  */
 	      value = (hplink->splt->output_offset
 		       + hplink->splt->output_section->vma
 		       + hplink->splt->_raw_size
@@ -4084,15 +4186,14 @@ elf32_hppa_finish_dynamic_symbol (output_bfd, info, h, sym)
 		      + hplink->sgot->output_offset
 		      + hplink->sgot->output_section->vma);
 
-      /* If this is a static link, or it is a -Bsymbolic link and the
-	 symbol is defined locally or was forced to be local because
-	 of a version file, we just want to emit a RELATIVE reloc.
-	 The entry in the global offset table will already have been
-	 initialized in the relocate_section function.  */
-      if (! hplink->root.dynamic_sections_created
-	  || (info->shared
-	      && (info->symbolic || h->dynindx == -1)
-	      && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR)))
+      /* If this is a -Bsymbolic link and the symbol is defined
+	 locally or was forced to be local because of a version file,
+	 we just want to emit a RELATIVE reloc.  The entry in the
+	 global offset table will already have been initialized in the
+	 relocate_section function.  */
+      if (info->shared
+	  && (info->symbolic || h->dynindx == -1)
+	  && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR))
 	{
 	  rel.r_info = ELF32_R_INFO (0, R_PARISC_DIR32);
 	  rel.r_addend = (h->root.u.def.value
@@ -4101,7 +4202,8 @@ elf32_hppa_finish_dynamic_symbol (output_bfd, info, h, sym)
 	}
       else
 	{
-	  BFD_ASSERT((h->got.offset & 1) == 0);
+	  if ((h->got.offset & 1) != 0)
+	    abort ();
 	  bfd_put_32 (output_bfd, (bfd_vma) 0,
 		      hplink->sgot->contents + h->got.offset);
 	  rel.r_info = ELF32_R_INFO (h->dynindx, R_PARISC_DIR32);
@@ -4122,9 +4224,10 @@ elf32_hppa_finish_dynamic_symbol (output_bfd, info, h, sym)
 
       /* This symbol needs a copy reloc.  Set it up.  */
 
-      BFD_ASSERT (h->dynindx != -1
-		  && (h->root.type == bfd_link_hash_defined
-		      || h->root.type == bfd_link_hash_defweak));
+      if (! (h->dynindx != -1
+	     && (h->root.type == bfd_link_hash_defined
+		 || h->root.type == bfd_link_hash_defweak)))
+	abort ();
 
       s = hplink->srelbss;
 
@@ -4170,7 +4273,8 @@ elf32_hppa_finish_dynamic_sections (output_bfd, info)
     {
       Elf32_External_Dyn *dyncon, *dynconend;
 
-      BFD_ASSERT (sdyn != NULL);
+      if (sdyn == NULL)
+	abort ();
 
       dyncon = (Elf32_External_Dyn *) sdyn->contents;
       dynconend = (Elf32_External_Dyn *) (sdyn->contents + sdyn->_raw_size);

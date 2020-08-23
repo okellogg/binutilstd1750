@@ -1866,6 +1866,12 @@ coff_set_arch_mach_hook (abfd, filehdr)
 	}
       break;
 #endif
+#ifdef M1750MAGIC
+    case M1750MAGIC:
+      arch = bfd_arch_m1750;
+      machine = internal_f->f_flags & F_M1750TYPE;
+      break;
+#endif
 #ifdef MC68MAGIC
     case MC68MAGIC:
     case M68MAGIC:
@@ -2646,6 +2652,12 @@ coff_set_flags (abfd, magicp, flagsp)
 #ifdef IA64MAGIC
     case bfd_arch_ia64:
       *magicp = IA64MAGIC;
+      return true;
+      break;
+#endif
+#ifdef M1750MAGIC
+    case bfd_arch_m1750:
+      *magicp = M1750MAGIC;
       return true;
       break;
 #endif
@@ -3712,6 +3724,11 @@ coff_write_object_contents (abfd)
 #if APOLLO_M68
 #define __A_MAGIC_SET__
     internal_a.magic = APOLLO_COFF_VERSION_NUMBER;
+#endif
+ 
+#if M1750
+#define __A_MAGIC_SET__
+    internal_a.magic = M1750MAGIC;
 #endif
 
 #if defined(M68) || defined(WE32K) || defined(M68K)

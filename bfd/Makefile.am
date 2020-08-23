@@ -59,6 +59,7 @@ ALL_MACHINES = \
 	cpu-i386.lo \
 	cpu-i860.lo \
 	cpu-i960.lo \
+	cpu-m1750.lo \
 	cpu-m32r.lo \
 	cpu-m68hc11.lo \
 	cpu-m68hc12.lo \
@@ -101,6 +102,7 @@ ALL_MACHINES_CFILES = \
 	cpu-i386.c \
 	cpu-i860.c \
 	cpu-i960.c \
+	cpu-m1750.c \
 	cpu-m32r.c \
 	cpu-m68hc11.c \
 	cpu-m68hc12.c \
@@ -151,6 +153,7 @@ BFD32_BACKENDS = \
 	coff-go32.lo \
 	coff-i860.lo \
 	coff-i960.lo \
+	coff-m1750.lo \
 	coff-m68k.lo \
 	coff-m88k.lo \
 	coff-mips.lo \
@@ -289,6 +292,7 @@ BFD32_BACKENDS_CFILES = \
 	coff-i860.c \
 	coff-go32.c \
 	coff-i960.c \
+	coff-m1750.c \
 	coff-m68k.c \
 	coff-m88k.c \
 	coff-mips.c \
@@ -755,6 +759,7 @@ cpu-i370.lo: cpu-i370.c $(INCDIR)/filenames.h
 cpu-i386.lo: cpu-i386.c $(INCDIR)/filenames.h
 cpu-i860.lo: cpu-i860.c $(INCDIR)/filenames.h
 cpu-i960.lo: cpu-i960.c $(INCDIR)/filenames.h
+cpu-m1750.lo: cpu-m1750.c $(INCDIR)/filenames.h
 cpu-m32r.lo: cpu-m32r.c $(INCDIR)/filenames.h
 cpu-m68hc11.lo: cpu-m68hc11.c $(INCDIR)/filenames.h
 cpu-m68hc12.lo: cpu-m68hc12.c $(INCDIR)/filenames.h
@@ -848,6 +853,9 @@ coff-go32.lo: coff-go32.c coff-i386.c $(INCDIR)/filenames.h \
   $(INCDIR)/coff/i386.h $(INCDIR)/coff/internal.h libcoff.h \
   $(INCDIR)/bfdlink.h coffcode.h coffswap.h
 coff-i960.lo: coff-i960.c $(INCDIR)/filenames.h $(INCDIR)/coff/i960.h \
+  $(INCDIR)/coff/internal.h libcoff.h $(INCDIR)/bfdlink.h \
+  coffcode.h coffswap.h
+coff-m1750.lo: coff-m1750.c $(INCDIR)/filenames.h $(INCDIR)/coff/m1750.h \
   $(INCDIR)/coff/internal.h libcoff.h $(INCDIR)/bfdlink.h \
   coffcode.h coffswap.h
 coff-m68k.lo: coff-m68k.c $(INCDIR)/filenames.h $(INCDIR)/coff/m68k.h \

@@ -3565,6 +3565,16 @@ ieee_write_processor (abfd)
 	  break;
 	}
       break;
+ 
+    case bfd_arch_m1750:
+      {
+	char ab[20];
+
+	sprintf (ab, "%lu", arch->mach);
+	if (! ieee_write_id (abfd, ab))
+	  return false;
+      }
+      break;
 
     case bfd_arch_m68k:
       {

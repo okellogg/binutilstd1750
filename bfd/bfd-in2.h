@@ -1339,6 +1339,7 @@ enum bfd_architecture
 {
   bfd_arch_unknown,   /* File arch not known */
   bfd_arch_obscure,   /* Arch known, not one of these */
+  bfd_arch_m1750,     /* MIL-STD-1750 */
   bfd_arch_m68k,      /* Motorola 68xxx */
 #define bfd_mach_m68000 1
 #define bfd_mach_m68008 2
@@ -2654,6 +2655,11 @@ This is the 3 bits of a value. */
   BFD_RELOC_860_HIGH,
   BFD_RELOC_860_HIGOT,
   BFD_RELOC_860_HIGOTOFF,
+
+/* These relocs are for the 1750 (2 bytes per word) */
+  BFD_RELOC_M1750_IMM16W,       /* immediate 16-bit word address */
+  BFD_RELOC_M1750_PCREL8W,      /* PC relative 8-bit word address */
+
   BFD_RELOC_UNUSED };
 typedef enum bfd_reloc_code_real bfd_reloc_code_real_type;
 reloc_howto_type *

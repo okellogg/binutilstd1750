@@ -215,7 +215,7 @@ esac
 case $basic_machine in
 	# Recognize the basic CPU types without company name.
 	# Some are omitted here because they have special meanings below.
-	tahoe | i860 | ia64 | m32r | m68k | m68000 | m88k | ns32k | arc \
+	tahoe | i860 | ia64 | m1750 | m32r | m68k | m68000 | m88k | ns32k | arc \
 	        | arm | arme[lb] | arm[bl]e | armv[2345] | armv[345][lb] | strongarm | xscale \
 		| pyramid | mn10200 | mn10300 | tron | a29k \
 		| 580 | i960 | h8300 \
@@ -226,7 +226,7 @@ case $basic_machine in
 		| alphaev6[78] \
 		| we32k | ns16k | clipper | i370 | sh | sh[34] \
 		| powerpc | powerpcle \
-		| 1750a | dsp16xx | pdp10 | pdp11 \
+		| dsp16xx | pdp10 | pdp11 \
 		| mips16 | mips64 | mipsel | mips64el \
 		| mips64orion | mips64orionel | mipstx39 | mipstx39el \
 		| mips64vr4300 | mips64vr4300el | mips64vr4100 | mips64vr4100el \
@@ -235,6 +235,9 @@ case $basic_machine in
 		| thumb | d10v | d30v | fr30 | avr | openrisc | tic80 \
 		| pj | pjl | h8500)
 		basic_machine=$basic_machine-unknown
+		;;
+	1750a)
+		basic_machine=m1750-unknown
 		;;
 	m6811 | m68hc11 | m6812 | m68hc12)
 		# Motorola 68HC11/12.
@@ -257,7 +260,7 @@ case $basic_machine in
 		;;
 	# Recognize the basic CPU types with company name.
 	# FIXME: clean up the formatting here.
-	vax-* | tahoe-* | i[234567]86-* | i860-* | ia64-* | m32r-* | m68k-* | m68000-* \
+	vax-* | tahoe-* | i[234567]86-* | i860-* | ia64-* | m1750-* | m32r-* | m68k-* | m68000-* \
 	      | m88k-* | sparc-* | ns32k-* | fx80-* | arc-* | c[123]* \
 	      | arm-*  | armbe-* | armle-* | armv*-* | strongarm-* | xscale-* \
 	      | mips-* | pyramid-* | tron-* | a29k-* | romp-* | rs6000-* \

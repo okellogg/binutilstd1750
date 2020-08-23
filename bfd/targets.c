@@ -597,6 +597,7 @@ extern const bfd_target i860coff_vec;
 extern const bfd_target icoff_big_vec;
 extern const bfd_target icoff_little_vec;
 extern const bfd_target ieee_vec;
+extern const bfd_target m1750coff_vec;
 extern const bfd_target m68k4knetbsd_vec;
 extern const bfd_target m68kaux_coff_vec;
 extern const bfd_target m68kcoff_vec;
@@ -849,6 +850,7 @@ const bfd_target * const bfd_target_vector[] = {
 	&icoff_big_vec,
 	&icoff_little_vec,
 	&ieee_vec,
+	&m1750coff_vec,
 	&m68kcoff_vec,
 	&m68kcoffun_vec,
 #if 0

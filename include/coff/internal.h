@@ -727,5 +727,12 @@ struct internal_reloc
 #define R_W65_PCR16	9
 
 #define R_W65_DP       10  /* direct page 8 bits only   */
+ 
+/* m1750 modes */
+#define R_M1750_IMMW16  1      /* Absolute 16-bit word address */
+#define R_M1750_PCREL8  2      /* 8-bit PC relative (word) address */
+#define R_M1750_HIGH16  3      /* MS 16 bits */
+#define R_M1750_LOW16   4      /* LS 16 bits */
+#define R_M1750_IMM32   5      /* Absolute 32-bit byte address */
 
 #endif /* GNU_COFF_INTERNAL_H */

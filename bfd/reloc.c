@@ -2269,6 +2269,12 @@ ENUMX
 ENUMDOC
   These relocs are only used within the ARM assembler.  They are not
   (at present) written to any object files.
+ 
+ENUM
+  BFD_RELOC_M1750_IMM16W
+ENUMX
+  BFD_RELOC_M1750_PCREL8W
+ENUMX
 
 ENUM
   BFD_RELOC_SH_PCDISP8BY2

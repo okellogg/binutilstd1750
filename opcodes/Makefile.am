@@ -77,6 +77,7 @@ CFILES = \
 	ia64-opc.c \
 	ia64-gen.c \
 	ia64-asmtab.c \
+	m1750-dis.c \
 	m32r-asm.c \
 	m32r-desc.c \
 	m32r-dis.c \
@@ -427,6 +428,8 @@ ia64-gen.lo: ia64-gen.c $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
   ia64-opc-a.c ia64-opc-i.c ia64-opc-m.c ia64-opc-b.c \
   ia64-opc-f.c ia64-opc-x.c ia64-opc-d.c
 ia64-asmtab.lo: ia64-asmtab.c
+m1750-dis.lo: m1750-dis.c $(INCDIR)/dis-asm.h $(INCDIR)/floatformat.h \
+  $(INCDIR)/opcode/m1750.h
 m32r-asm.lo: m32r-asm.c sysdep.h config.h $(INCDIR)/ansidecl.h \
   $(BFD_H) $(INCDIR)/symcat.h m32r-desc.h $(INCDIR)/opcode/cgen.h \
   m32r-opc.h opintl.h

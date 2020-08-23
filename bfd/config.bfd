@@ -38,6 +38,7 @@ c54x*)	targ_archs=bfd_tic54x_arch ;;
 hppa*)	targ_archs=bfd_hppa_arch ;;
 x86_64) targ_archs=bfd_i386_arch ;;
 i[3456]86) targ_archs=bfd_i386_arch ;;
+m1750*) targ_archs=bfd_m1750_arch;;
 i370)   targ_archs=bfd_i370_arch ;;
 m6811*|m68hc11*) targ_archs="bfd_m68hc11_arch bfd_m68hc12_arch" ;;
 m6812*|m68hc12*) targ_archs="bfd_m68hc12_arch bfd_m68hc11_arch" ;;
@@ -458,6 +459,11 @@ case "${targ}" in
   i960-*-elf*)
     targ_defvec=bfd_elf32_i960_vec
     targ_selvecs="icoff_little_vec icoff_big_vec"
+    ;;
+ 
+  m1750-*-coff*)
+    targ_defvec=m1750coff_vec
+    targ_selvecs="m1750coff_vec tekhex_vec ieee_vec"
     ;;
 
   m32r-*-*)

@@ -76,6 +76,13 @@
 #define TARGET_FORMAT "coff-i386"
 #endif
 #endif
+ 
+#ifdef TC_M1750
+#include "coff/m1750.h"
+#ifndef TARGET_FORMAT
+#define TARGET_FORMAT "coff-m1750"
+#endif
+#endif
 
 #ifdef TC_M68K
 #include "coff/m68k.h"

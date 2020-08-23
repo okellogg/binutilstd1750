@@ -2266,6 +2266,7 @@ for this_target in $target $canon_targets ; do
       i[3456]86)	cpu_type=i386 arch=i386;;
       x86_64)		cpu_type=i386 arch=x86_64;;
       ia64)		cpu_type=ia64 ;;
+      m1750)		cpu_type=m1750 ;;
       m6811|m6812|m68hc12) cpu_type=m68hc11 ;;
       m680[012346]0)	cpu_type=m68k ;;
       m68008)		cpu_type=m68k ;;
@@ -2434,6 +2435,8 @@ EOF
       ia64-*-elf*)	    fmt=elf ;;
       ia64-*-linux-gnu*)    fmt=elf em=linux ;;
       ia64-*-hpux*)	    fmt=elf em=hpux ;;
+
+      m1750-*-coff)	    fmt=coff targ=m1750coff ;;
 
       m32r-*-*)		    fmt=elf bfd_gas=yes ;;
 
@@ -2792,7 +2795,7 @@ fi
 # IEEE FP.  On those that don't support FP at all, usually IEEE
 # is emulated.
 case ${target_cpu} in
-  vax | tahoe )	atof=${target_cpu} ;;
+  vax | tahoe | m1750)	atof=${target_cpu} ;;
   *)		atof=ieee ;;
 esac
 
@@ -2849,6 +2852,10 @@ case ${obj_format} in
     case ${target_cpu_type} in
       i386) cat >> confdefs.h <<\EOF
 #define I386COFF 1
+EOF
+ ;;
+      m1750) cat >> confdefs.h <<\EOF
+#define M1750COFF 1
 EOF
  ;;
       m68k) cat >> confdefs.h <<\EOF

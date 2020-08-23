@@ -215,6 +215,7 @@ DESCRIPTION
 .#define bfd_mach_arm_XScale	10
 .  bfd_arch_ns32k,     {* National Semiconductors ns32000 *}
 .  bfd_arch_w65,       {* WDC 65816 *}
+.  bfd_arch_m1750,     {* MIL-STD-1750 *}
 .  bfd_arch_tic30,     {* Texas Instruments TMS320C30 *}
 .  bfd_arch_tic54x,    {* Texas Instruments TMS320C54X *}
 .  bfd_arch_tic80,     {* TI TMS320c80 (MVP) *}
@@ -297,6 +298,7 @@ extern const bfd_arch_info_type bfd_i370_arch;
 extern const bfd_arch_info_type bfd_i386_arch;
 extern const bfd_arch_info_type bfd_i860_arch;
 extern const bfd_arch_info_type bfd_i960_arch;
+extern const bfd_arch_info_type bfd_m1750_arch;
 extern const bfd_arch_info_type bfd_m32r_arch;
 extern const bfd_arch_info_type bfd_m68hc11_arch;
 extern const bfd_arch_info_type bfd_m68hc12_arch;
@@ -342,6 +344,7 @@ static const bfd_arch_info_type * const bfd_archures_list[] = {
   &bfd_i386_arch,
   &bfd_i860_arch,
   &bfd_i960_arch,
+  &bfd_m1750_arch,
   &bfd_m32r_arch,
   &bfd_m68hc11_arch,
   &bfd_m68hc12_arch,
@@ -851,6 +854,10 @@ bfd_default_scan (info, string)
 
     case 32000:
       arch = bfd_arch_we32k;
+      break;
+ 
+    case 1750:   /* TODO Check - can we remove this case? */
+      arch = bfd_arch_m1750;
       break;
 
     case 3000:

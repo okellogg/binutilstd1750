@@ -182,6 +182,7 @@ ALL_EMULATIONS = \
 	ei386pe.o \
 	ei386pe_posix.o \
 	elnk960.o \
+	em1750coff.o \
 	em68hc11elf.o \
 	em68hc11elfb.o \
 	em68hc12elf.o \
@@ -593,6 +594,9 @@ ei386pe_posix.c: $(srcdir)/emulparams/i386pe_posix.sh \
 elnk960.c: $(srcdir)/emulparams/lnk960.sh \
   $(srcdir)/emultempl/lnk960.em $(srcdir)/scripttempl/i960.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} lnk960 "$(tdir_lnk960)"
+em1750coff.c: $(srcdir)/emulparams/m1750coff.sh \
+  $(srcdir)/emultempl/generic.em $(srcdir)/scripttempl/m1750coff.sc ${GEN_DEPENDS}
+	${GENSCRIPTS} m1750coff "$(tdir_m1750coff)"
 em68hc11elf.c: $(srcdir)/emulparams/m68hc11elf.sh \
   $(srcdir)/emultempl/generic.em $(srcdir)/scripttempl/elfm68hc11.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} m68hc11elf "$(tdir_m68hc11)"

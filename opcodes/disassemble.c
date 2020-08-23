@@ -37,6 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define ARCH_i960
 #define ARCH_ia64
 #define ARCH_fr30
+#define ARCH_m1750
 #define ARCH_m32r
 #define ARCH_m68k
 #define ARCH_m68hc11
@@ -171,6 +172,11 @@ disassembler (abfd)
 #ifdef ARCH_fr30
     case bfd_arch_fr30:
       disassemble = print_insn_fr30;
+      break;
+#endif
+#ifdef ARCH_m1750
+    case bfd_arch_m1750:
+      disassemble = print_insn_m1750;
       break;
 #endif
 #ifdef ARCH_m32r
